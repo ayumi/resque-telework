@@ -200,10 +200,13 @@ $(document).ready(function() {
           <% if info['cpu'] %>
             <br>cpu:
             <%= info['cpu']['load_1min'] %> / <%= info['cpu']['cores'] %>
+          <% elsif info['cpu_load_1mins'] %>
+            <br>cpu:
+            <%= "(%.2f%% cpu)" % (100*info['cpu_load_1mins']) %>
           <% end %>
           <% if info['mem'] %>
             <br>mem:
-            <%= info['mem']['free'] %> G free / <%= info['mem']['total'] %> G
+            <%= info['mem']['free'] %> G free
           <% end %>
         <% end %>
 	     </center>
