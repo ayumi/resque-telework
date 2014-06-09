@@ -228,8 +228,35 @@ module Resque
             redis.tasks_add( @host , id, t.merge( { 'task_id' => id, 'worker_count' => @count,
                                                     'rails_env' => @envv, 'queue' => @q,
                                                     'worker_id' => [], 'worker_status' => 'Stopped'} ) )
-            redirect "/resque/#{appn.downcase}"          
+            redirect "/resque/#{appn.downcase}"
           end
+
+          # Restore tasks from worker image
+          app.post "/telework/restore_tasks" do
+            @host = params[:h]
+            @source_host = params[:source]
+
+            # Copy from an active host
+            if redis.hosts.include?(@source_host)
+              redis.tasks(@source_host).each do |(id, task_params)|
+                task_params.delete("revision")
+                task_params.delete("revision_small")
+                task_params.delete("command")
+                task_params["worker_id"] = []
+                task_params["worker_status"] = ""
+                task_params["worker_pid"] = []
+
+                new_task_id = redis.unique_id.to_s
+                redis.tasks_add( @host, new_task_id, task_params )
+              end
+            end
+
+            # TODO: Copy from a backup host task list
+
+            redirect "/resque/#{appn.downcase}"
+          end
+
+          # TODO: Backup worker task list
           
           app.post "/#{appn.downcase}/delete" do
             @task_id= params[:task]

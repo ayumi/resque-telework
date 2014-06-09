@@ -21,7 +21,7 @@ function hostlist(index) {
 };
 function queuelist(index) {
 	if(index != "(other)") {
-		document.startform.queue_text.value= "";		
+		document.startform.queue_text.value= "";
 	}
 	return true;
 };
@@ -121,32 +121,60 @@ $(document).ready(function() {
 <h1>Starting Workers</h1>
 <br>
 
-<form style="float:left;" id="startform" name="startform" method="post" action="/resque/telework/start_task" >
-<table>
-	<tr>
-		<th>Host</th>
-		<th>Queue(s)</th>
-		<th>Count</th>
+<form style="float:left; margin-bottom: 50px;" id="startform" name="startform" method="post" action="/resque/telework/start_task" >
+  <table>
+    <thead>
+      <tr>
+        <th>Host</th>
+        <th>Queue(s)</th>
+        <th>Count</th>
         <th>Environment</th>
-	</tr>
-
-    <tr>
-	    <td><%= generic_filter_with_dis("host_filter", "h", hosts.zip( hosts.map{ |h| redis.aliases(h) } ), 
-                                 "onchange=\"javascript: hostlist(this.options[this.selectedIndex].value);\"") %>
-	    </td>
-	    <td><%= generic_filter("queue_filter", "q", ["(other)"] + Resque.redis.smembers('queues').sort << "*",
-                                  "onchange=\"javascript: queuelist(this.options[this.selectedIndex].value);\"") %>
-             <input id="queue_text" type="text" name="qmanual" onkeyup="javascript: queuetext(this.value);" />
-	    </td>
-	    <td><%= generic_filter("count_filter", "c", ['1', '2', '3', '4', '5', '6', '7', '8'] ) %>
-	    </td>
-        <td><%= generic_filter("env_filter", "e", ['(default)', 'production', 'staging', 'development', 'test'] ) %>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          <%= generic_filter_with_dis("host_filter", "h", hosts.zip( hosts.map{ |h| redis.aliases(h) } ), "onchange=\"javascript: hostlist(this.options[this.selectedIndex].value);\"") %>
         </td>
-        <td><input type="submit" value="Start" /></td>
-	</tr>
-</table>
-    </form>
-<br/><br/><br/><br/><br/><br/>
+        <td>
+          <%= generic_filter("queue_filter", "q", ["(other)"] + Resque.redis.smembers('queues').sort << "*", "onchange=\"javascript: queuelist(this.options[this.selectedIndex].value);\"") %>
+          <input id="queue_text" type="text" name="qmanual" onkeyup="javascript: queuetext(this.value);" >
+        </td>
+        <td>
+          <%= generic_filter("count_filter", "c", ['1', '2', '3', '4', '5', '6', '7', '8'] ) %>
+        </td>
+        <td>
+          <%= generic_filter("env_filter", "e", ['(default)', 'production', 'staging', 'development', 'test'] )%>
+        </td>
+        <td><input type="submit" value="Start"></td>
+      </tr>
+    </tbody>
+  </table>
+</form>
+
+<h1>Restoring Workers</h1>
+<form style="float:left; margin-bottom: 50px;" id="restore-form" name="restore-form" method="post" action="/resque/telework/restore_tasks" >
+  <table>
+    <thead>
+      <tr>
+        <th>Host</th>
+        <th>Worker Image</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          <%= generic_filter_with_dis("host_filter", "h", hosts.zip( hosts.map{ |h| redis.aliases(h) } ), "onchange=\"javascript: hostlist(this.options[this.selectedIndex].value);\"") %>
+        </td>
+        <td>
+          <%= generic_filter_with_dis("host_filter", "source", hosts.zip( hosts.map{ |h| redis.aliases(h) } ), "onchange=\"javascript: hostlist(this.options[this.selectedIndex].value);\"") %>
+        </td>
+        <td><input type="submit" value="Append"></td>
+  	  </tr>
+    </tbody>
+  </table>
+</form>
+
 <% end %>
 
 <br>
