@@ -3,6 +3,22 @@
 <META HTTP-EQUIV="refresh" CONTENT="<%= @refresh%>">
 <% end %>
 
+<style>
+  .clear:before,
+  .clear:after {
+    content: " ";
+    display: table;
+  }
+  .clear:after {
+    clear: both;
+  }
+  #main form {
+    float: left;
+  }
+  #stopping_all {
+    float: right !important;
+  }
+</style>
 
 <script language="javascript" type="text/javascript">
 function hostlist(index) {
@@ -121,7 +137,7 @@ $(document).ready(function() {
 <h1>Starting Workers</h1>
 <br>
 
-<form style="float:left; margin-bottom: 50px;" id="startform" name="startform" method="post" action="/resque/telework/start_task" >
+<form id="startform" name="startform" method="post" action="/resque/telework/start_task" >
   <table>
     <thead>
       <tr>
@@ -152,8 +168,10 @@ $(document).ready(function() {
   </table>
 </form>
 
+<div class="clear"></div>
+
 <h1>Restoring Workers</h1>
-<form style="float:left; margin-bottom: 50px;" id="restore-form" name="restore-form" method="post" action="/resque/telework/restore_tasks" >
+<form id="restore-form" name="restore-form" method="post" action="/resque/telework/restore_tasks" >
   <table>
     <thead>
       <tr>
@@ -174,6 +192,8 @@ $(document).ready(function() {
     </tbody>
   </table>
 </form>
+
+<div class="clear"></div>
 
 <% end %>
 
