@@ -157,7 +157,7 @@ $(document).ready(function() {
           <input id="queue_text" type="text" name="qmanual" onkeyup="javascript: queuetext(this.value);" >
         </td>
         <td>
-          <%= generic_filter("count_filter", "c", ['1', '2', '3', '4', '5', '6', '7', '8'] ) %>
+          <%= generic_filter("count_filter", "c", ['1', '2', '3', '4', '5', '6', '8', '10', '12', '16', '20', '24', '30'] ) %>
         </td>
         <td>
           <%= generic_filter("env_filter", "e", ['(default)', 'production', 'staging', 'development', 'test'] )%>
@@ -294,11 +294,17 @@ $(document).ready(function() {
 	  <% for id, info in redis.tasks(host) %>
 	  	 <% auto= info['mode']=='Auto' %>
 	     <% status= info['worker_status'] %>
-	     <% status= "<span style=\"color:#aaa;\">Stopped</span>" if status.blank? %>
+	     <% status= "Stopped" if status.blank? %>
 	     <% running= status!='Stopped' %>
 	     <% paused=  status=='Paused' %>
              <td><%= "<a href=\"/resque/telework/task/#{host}/#{id}\">#{id}</a>" %>
-	    </td><td><center><%= auto ? "<b>Auto</b><br/><br/>" : "" %><%= "#{status.gsub(/,/,'<br/>')}" %> </center>
+	    </td><td><center><%= auto ? "<b>Auto</b><br/><br/>" : "" %>
+        <% if status == 'Stopped' %>
+          <span style="color: grey;">Stopped</span>
+        <% else %>
+          <%= "#{status.gsub(/,/,'<br/>')}" %>
+        <% end %>
+      </center>
 	    </td><td><% for q in info['queue'].split(",") %>
 	    <% if q=="*" %>*
 	    <% else %> <% ql= redis.queue_length(q) %>
