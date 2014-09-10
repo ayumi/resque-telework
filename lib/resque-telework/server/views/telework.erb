@@ -294,7 +294,7 @@ $(document).ready(function() {
 	  <% for id, info in redis.tasks(host) %>
 	  	 <% auto= info['mode']=='Auto' %>
 	     <% status= info['worker_status'] %>
-	     <% status= 'Stopped' if status.blank? %>
+	     <% status= "<span style=\"color:#aaa;\">Stopped</span>" if status.blank? %>
 	     <% running= status!='Stopped' %>
 	     <% paused=  status=='Paused' %>
              <td><%= "<a href=\"/resque/telework/task/#{host}/#{id}\">#{id}</a>" %>
@@ -332,8 +332,8 @@ $(document).ready(function() {
 	        </select>
 	     </td><td align="center"><p align="center"><font size="1">
 		    <% info['worker_id'].zip(info['worker_pid']) do |id,pid| %><% unless pid.blank? %>
-		      <%= "<a href=\"/resque/telework/worker/#{host}/#{id}\">Worker #{id}</a>" if running %><br/>
-	          <font size=1><% l= "#{host}:#{pid}" %><%= "<a href=\"/resque/workers/#{l}:#{info['queue']}\">#{l}</a>" if running %></font><br/>
+		      <%= "<a href=\"/resque/telework/worker/#{host}/#{id}\">#{id}</a> :" if running %>
+	          <font size=1><% l= "#{host}:#{pid}" %><%= "<a href=\"/resque/workers/#{l}:#{info['queue']}\">#{pid}</a>" if running %></font><br/>
 	        <% end %><% end %>
 	        </font></p>
 	   </td></tr>
