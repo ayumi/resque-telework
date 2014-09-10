@@ -75,7 +75,7 @@ function action(val) {
 	    break;
 	  case "autostop":
 	    url = "/stop_auto?kill=true&task="+params[1]+"&host="+params[2];
-	    break;	    
+	    break;
 	  default:
 	    return true;
 	}
@@ -214,7 +214,7 @@ $(document).ready(function() {
 	    <td><input id="note_user" type="text" name="note_user"/></td>
 	    <td><input id="note_text" type="text" size="100" name="note_text"/></td>
 	    <td><input type="submit" value="Add"/></td>
-</table>	    	    
+</table>
 </form>
 
 
@@ -307,16 +307,16 @@ $(document).ready(function() {
 	    <% end %><% end %><br/><% end %>
 	    </td><td><% if running%><%= "#{info['worker_count']}" %>
                     <% else %><select id= <%= "\"count_filter_#{id}\"" %> name="c"/>
-                               <% for co in (1..8).to_a %>
+                               <% [1,2,3,4,5,6,8,10,12,16,20,24,30].each do |co| %>
                                  <option <%= co==info['worker_count'].to_i ? 'selected="selected"' : '' %>value=<%= "#{co}"%> ><%= co %></option>
-                             <% end %>
+                               <% end %>
                     </select><% end %>
 		</td><td><% if running %><a href= <%= "/resque/telework/revision/#{info['revision']}" %> ><%= "#{info['revision_small']}" %></a>
 			     <% else %> <select id= <%= "\"rev_filter_#{id}\"" %> name="r"/>
 			                   <% for rev in redis.revisions(host) %>
 			                   <option value=<%= "\"#{rev['revision']},#{rev['revision_small']}\"" %> ><%= rev['revision_small'] %></option>
 			                   <% end %>
-			                </select> 
+			                </select>
 			     <% end %>
         </td><td>
 	        <select id="action" name="a" onchange="javascript: action(this.options[this.selectedIndex].value);" >
@@ -327,8 +327,8 @@ $(document).ready(function() {
 	            <option <%= 'disabled="disabled"'     if (!running || paused || auto) %> value=<%= "\"pause,#{id},#{host}\"" %> >Pause worker</option>
 	            <option <%= 'disabled="disabled"' unless paused && !auto %> value=<%= "\"cont,#{id},#{host}\"" %> >Resume worker</option>
 	            <option <%= 'disabled="disabled"'     if auto || running %> value=<%= "\"auto,#{id},#{host}\"" %> >Start auto</option>
-	            <option <%= 'disabled="disabled"'     unless auto %> value=<%= "\"autostop,#{id},#{host}\"" %> >Stop auto</option>	    
-	            <option <%= 'disabled="disabled"'     if running || auto %> value=<%= "\"delete,#{id},#{host}\"" %> >Delete</option>        
+	            <option <%= 'disabled="disabled"'     unless auto %> value=<%= "\"autostop,#{id},#{host}\"" %> >Stop auto</option>
+	            <option <%= 'disabled="disabled"'     if running || auto %> value=<%= "\"delete,#{id},#{host}\"" %> >Delete</option>
 	        </select>
 	     </td><td align="center"><p align="center"><font size="1">
 		    <% info['worker_id'].zip(info['worker_pid']) do |id,pid| %><% unless pid.blank? %>
@@ -346,7 +346,7 @@ $(document).ready(function() {
 </br>
 <form id="stopping_all" name="stopping_all" method="post" action="/resque/telework/stop_all">
 	<%= generic_filter("mode_filter", "m", ["Stop", "Kill"]) %>
-    all workers on host <%= generic_filter_with_dis("host_filter", "h", hosts.zip( hosts.map{ |h| redis.aliases(h) } ) <<  ["[All hosts]", "[All hosts]"]) %>	 
+    all workers on host <%= generic_filter_with_dis("host_filter", "h", hosts.zip( hosts.map{ |h| redis.aliases(h) } ) <<  ["[All hosts]", "[All hosts]"]) %>
 	<span class="stopping_all_submit"><input type="submit" value="Go"/></span>
 </form></br></br>
 
