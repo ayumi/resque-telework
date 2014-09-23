@@ -1,11 +1,11 @@
 module Resque
   module Plugins
-    module Telework      
+    module Telework
       class Manager
         require 'vmstat'
-        
+
         include Resque::Plugins::Telework::Redis
-        
+
         def initialize(cfg)
           @RUN_DAEMON= true
           @HOST= cfg['hostname']
@@ -17,7 +17,7 @@ module Resque
           @RRESTART= false  # Rolling restart
           @QUITTING= false
         end
-        
+
         # The manager (e.g. daemon) main loop
         def start
           Signal.trap("USR1") do
@@ -40,8 +40,8 @@ module Resque
           end
           loop do                                     # The main loop
             while @RUN_DAEMON do                      # If there is no request to stop
-              i_am_alive(@QUITTING, 
-                         @TORESTART.any?, 
+              i_am_alive(@QUITTING,
+                         @TORESTART.any?,
                          health_info)                 # Notify the system that the daemon is alive
               restart_workers_on_latest if @RRESTART  # Rolling restart
               check_status
@@ -72,7 +72,7 @@ module Resque
           puts "Backtrace: #{e.backtrace}"
           send_status( 'Error', "Exception should not be raised in the #{@HOST} daemon, please submit a bug report")
         end
-        
+
         def check_status
           @RUN_DAEMON= false if @QUITTING && @WORKERS.empty?
         end
@@ -102,7 +102,7 @@ module Resque
             }
           }
         end
-        
+
         # Add a status message on the status queue
         def send_status( severity, message )
           puts "Telework: #{severity}: #{message}"
@@ -110,7 +110,7 @@ module Resque
                   'date'=> Time.now }
           status_push(info)
         end
-        
+
         # Execute a command synchronously
         def do_command( cmd )
           case cmd['command']
@@ -128,7 +128,7 @@ module Resque
             @RRESTART= true
           when 'restart_workers_on_latest_revision_and_quit'     # Shutdown daemon and restart on another one
             @RRESTART= true
-            @QUITTING= true            
+            @QUITTING= true
           when 'kill_daemon'
             send_status( 'Error', "A kill request has been received, the daemon on #{@HOST} is now brutally terminating by calling exit()")
             i_am_dead
@@ -173,7 +173,7 @@ module Resque
             if s==status
               cmd= auto.clone
               cmd['worker_id']= auto['worker_id'][i]
-              if 'START'==action 
+              if 'START'==action
                 start_worker( cmd, cmd['rev_info'], true )
               else
                 cmd['action']= action
@@ -220,9 +220,9 @@ module Resque
           auto['rev_info']= rev_info
           # Get status for the workers
           auto['last_action']= Time.now - auto['auto_delay'].to_i
-          @AUTO[id]= auto       
+          @AUTO[id]= auto
         end
-        
+
         # Start a task
         def start_worker( cmd, rev_info, auto=false )
           # Retrieving args
@@ -238,15 +238,26 @@ module Resque
           # env["COUNT"]= cmd['worker_count'] if cmd['worker_count']
           env["RAILS_ENV"]= cmd['rails_env'] if "(default)" != cmd['rails_env']
           env["BUNDLE_GEMFILE"] = path+"/Gemfile" if ENV["BUNDLE_GEMFILE"]           # To make sure we use the new gems
-          opt= { :in => "/dev/null", 
-                 :out => "#{log_path}/telework_#{id}_#{queuel}_stdout.log", 
-                 :err => "#{log_path}/telework_#{id}_#{queuel}_stderr.log", 
+
+          # Additional ENV vars
+          env_vars = cmd['env_vars']
+          unless env_vars.empty?
+            env_vars.split(' ').each do |h, var_str|
+              var, val = var_str.split('=')
+              env[var] = val
+            end
+          end
+
+          opt= { :in => "/dev/null",
+                 :out => "#{log_path}/telework_#{id}_#{queuel}_stdout.log",
+                 :err => "#{log_path}/telework_#{id}_#{queuel}_stderr.log",
                  :chdir => path,
                  :unsetenv_others => false }
           exec= cmd['exec']
           pid= spawn( env, exec, opt) # Start it!
-          info= { 'pid' => pid, 'status' => 'RUN', 'environment' => env, 'options' => opt, 
+          info= { 'pid' => pid, 'status' => 'RUN', 'environment' => env, 'options' => opt,
                   'revision_info' => rev_info, 'cmd' => cmd }
+
           # Log snapshot
           info['log_snapshot_period']= cmd['log_snapshot_period'].to_i if cmd['log_snapshot_period']
           info['log_snapshort_lines']= cmd['log_snapshot_lines'].to_i if cmd['log_snapshot_lines']
@@ -304,7 +315,7 @@ module Resque
           workers_add( @HOST, id, info )
           @WORKERS[id]= info
         end
-                
+
         def check_processes
           #workers_delall( @HOST )
           @WORKERS.keys.each do |id|
@@ -312,7 +323,7 @@ module Resque
             unexpected_death= false
             begin # Zombie hunt..
               res= Process.waitpid(@WORKERS[id]['pid'], Process::WNOHANG)
-              remove= true if res 
+              remove= true if res
             rescue # Not a child.. so the process is already dead (we don't know why, maybe someone did a kill -9)
               unexpected_death= true
               remove= true
@@ -335,7 +346,7 @@ module Resque
             else
               update_log_snapshot(id)
               workers_add( @HOST, id, @WORKERS[id] )
-            end            
+            end
           end
         end
 
@@ -344,7 +355,7 @@ module Resque
           l= ql.include?("*") ? queue_list : ql
           l.inject(0) { |a,e| a+queue_length(e) }
         end
-        
+
         def update_log_snapshot( id )
           ls= @WORKERS[id]['log_snapshot_period']
           return unless ls
@@ -361,13 +372,13 @@ module Resque
             info= { :date => Time.now, :log_stderr => logerr, :log_stdout => logout }
             logs_add( @HOST, id, info )
             @WORKERS[id]['last_log_snapshot']= now
-          end 
+          end
         end
-        
+
         def get_tail( f, size )
           `tail -n #{size} #{f}`
         end
-      
+
       end
     end
   end

@@ -7,7 +7,7 @@ module Resque
 
         VIEW_PATH = File.join(File.dirname(__FILE__), 'server', 'views')
         PUBLIC_PATH = File.join(File.dirname(__FILE__), 'server', 'public')
-                        
+
         def self.registered( app )
           appn= 'Telework'
 
@@ -53,7 +53,7 @@ module Resque
             end
             def task_default
               { 'auto_max_waiting_job_per_worker' => 1,'auto_worker_min' => 0, 'auto_delay' => 15,
-                'log_snapshot_period' => 30, 'log_snapshot_lines' => 40, 'exec' => "bundle exec rake resque:work --trace"
+                'log_snapshot_period' => 30, 'log_snapshot_lines' => 40, 'exec' => "bundle exec rake resque:work --trace", 'env_vars' => ''
               }
             end
           end
@@ -61,7 +61,7 @@ module Resque
           app.get "/#{appn.downcase}" do
             redirect "/resque/#{appn.downcase}/Overview"
           end
-          
+
           app.get "/#{appn.downcase}/Overview" do
             @refresh= nil
             if params[:refresh]
@@ -79,42 +79,42 @@ module Resque
             @scheduling= true
             my_show appn.downcase
           end
-          
+
           app.get "/#{appn.downcase}/Misc" do
             my_show 'misc'
-          end          
+          end
 
           app.get "/#{appn.downcase}/Stats" do
             my_show 'stats'
-          end 
-          
+          end
+
           app.get "/#{appn.downcase}/revision/:revision" do
             @revision= params[:revision]
-            my_show 'revision' 
+            my_show 'revision'
           end
 
           app.get "/#{appn.downcase}/worker/:host/:worker" do
             @worker= params[:worker]
             @host= params[:host]
-            my_show 'worker' 
+            my_show 'worker'
           end
 
           app.get "/#{appn.downcase}/task/:host/:task_id" do
             @task_id= params[:task_id]
             @host= params[:host]
-            my_show 'task' 
+            my_show 'task'
           end
 
           app.get "/#{appn.downcase}/host/:host" do
             @host= params[:host]
-            my_show 'host' 
+            my_show 'host'
           end
-          
+
           app.get "/#{appn.downcase}/config" do
             content_type :json
             redis.configuration
           end
-          
+
           app.post "/#{appn.downcase}_stopit/:worker" do
             @worker= params[:worker]
             @host= nil
@@ -149,8 +149,8 @@ module Resque
             host= params[:host]
             redis.hosts_rem( host )
             redis.aliases_rem( host )
-            redirect "/resque/#{appn.downcase}"            
-          end          
+            redirect "/resque/#{appn.downcase}"
+          end
 
           app.post "/#{appn.downcase}_mod_host/:host" do
             host= params[:host]
@@ -166,7 +166,7 @@ module Resque
             else
               redis.comments_add( host, comment )
             end
-            redirect "/resque/#{appn.downcase}"            
+            redirect "/resque/#{appn.downcase}"
           end
 
           app.post "/#{appn.downcase}_mod_task/:task" do
@@ -178,7 +178,7 @@ module Resque
               end
             end
             @task= redis.tasks_by_id( @host, @task_id )
-            all= ['log_snapshot_period', 'log_snapshot_lines', 'exec', 'worker_count',
+            all= ['log_snapshot_period', 'log_snapshot_lines', 'exec', 'env_vars', 'worker_count',
                   'auto_delay', 'auto_max_waiting_job_per_worker', 'auto_worker_min' ]
             all.each do |a|
               @task[a]= params[a]
@@ -199,7 +199,7 @@ module Resque
             redis.cmds_push( @host, { 'command' => 'kill_worker', 'worker_id'=> @worker } ) if @host
             my_show 'stopit'
           end
-          
+
           app.post "/#{appn.downcase}/add_note" do
             @user= params[:note_user]
             @date= Time.now
@@ -207,13 +207,13 @@ module Resque
             redis.notes_push({ 'user'=> @user, 'date'=> @date, 'note' => @note })
             redirect "/resque/#{appn.downcase}"
           end
-          
+
           app.post "/#{appn.downcase}_del_note/:note" do
             @note_id= params[:note]
             redis.notes_del(@note_id)
             redirect "/resque/#{appn.downcase}"
           end
-          
+
           # Start a task
           app.post "/telework/start_task" do
             @host= params[:h]
@@ -257,14 +257,14 @@ module Resque
           end
 
           # TODO: Backup worker task list
-          
+
           app.post "/#{appn.downcase}/delete" do
             @task_id= params[:task]
             @host= params[:host]
             redis.tasks_rem( @host, @task_id )
-            redirect "/resque/#{appn.downcase}"            
+            redirect "/resque/#{appn.downcase}"
           end
-          
+
           # Start workers
           app.post "/#{appn.downcase}/start" do
             @task_id= params[:task]
@@ -295,7 +295,7 @@ module Resque
             @host= params[:host]
             @rev= params[:rev].split(',')
             @task= redis.tasks_by_id(@host, @task_id)
-            count= params[:count]        
+            count= params[:count]
             wid= []
             for i in 1..count.to_i do
               wid << redis.unique_id.to_s
@@ -319,9 +319,9 @@ module Resque
             @host= params[:host]
             @task= redis.tasks_by_id(@host, @task_id)
             cmd= @task
-            cmd['command']= 'stop_auto' 
+            cmd['command']= 'stop_auto'
             redis.cmds_push( @host, cmd )
-            redirect "/resque/#{appn.downcase}"                
+            redirect "/resque/#{appn.downcase}"
           end
 
 
@@ -331,7 +331,7 @@ module Resque
             @cont= params[:cont]=="true"
             @task= redis.tasks_by_id(@host, @task_id)
             @task['worker_id'].each do |id|
-              redis.cmds_push( @host, { 'command' => 'signal_worker', 'worker_id'=> id, 'action' => @cont ? 'CONT' : 'PAUSE' } ) 
+              redis.cmds_push( @host, { 'command' => 'signal_worker', 'worker_id'=> id, 'action' => @cont ? 'CONT' : 'PAUSE' } )
             end
             redirect "/resque/#{appn.downcase}"
           end
@@ -342,7 +342,7 @@ module Resque
             @kill= params[:kill]=="true"
             @task= redis.tasks_by_id(@host, @task_id)
             @task['worker_id'].each do |id|
-              redis.cmds_push( @host, { 'command' => 'signal_worker', 'worker_id'=> id, 'action' => @kill ? 'KILL' : 'QUIT' } ) 
+              redis.cmds_push( @host, { 'command' => 'signal_worker', 'worker_id'=> id, 'action' => @kill ? 'KILL' : 'QUIT' } )
             end
             redirect "/resque/#{appn.downcase}"
           end
@@ -354,7 +354,7 @@ module Resque
             hl.each do |h|
               redis.workers(h).each do |id, info|
                 unless info['worker_status']=='Stopped'
-                  redis.cmds_push( h, { 'command' => 'signal_worker', 'worker_id'=> id, 'action' => @kill ? 'KILL' : 'QUIT' } ) 
+                  redis.cmds_push( h, { 'command' => 'signal_worker', 'worker_id'=> id, 'action' => @kill ? 'KILL' : 'QUIT' } )
                 end
               end
             end
@@ -362,9 +362,9 @@ module Resque
           end
 
           app.tabs << appn
-          
+
         end
-      
+
       end
     end
   end
