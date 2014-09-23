@@ -242,7 +242,7 @@ module Resque
           # Additional ENV vars
           env_vars = cmd['env_vars']
           unless env_vars.empty?
-            env_vars.split(' ').each do |h, var_str|
+            env_vars.split(' ').each do |var_str|
               var, val = var_str.split('=')
               env[var] = val
             end
