@@ -23,7 +23,7 @@ module Resque
               @@myredis
             end
             def my_substabs
-              ["Overview", "Start", "Stats", "Misc"]
+              ["Overview", "Start", "Stats", "Tags", "Misc"]
             end
             def my_show(page, layout = true)
               response["Cache-Control"] = "max-age=0, private, must-revalidate"
@@ -82,6 +82,21 @@ module Resque
 
           app.get "/#{appn.downcase}/Misc" do
             my_show 'misc'
+          end
+
+          app.get "/#{appn.downcase}/Tags" do
+            @tags = Resque::Plugins::Telework::QUEUE_TAGS
+            @tags_to_queues = @tags.inject({}) { |hash, tag| hash[tag] = redis.queues_with_tag(tag); hash }
+            my_show 'tags'
+          end
+
+          app.post "/#{appn.downcase}/Tags" do
+            if params[:_method] == 'DELETE'
+              redis.remove_tag_from_queue(params[:tag], params[:queue])
+            elsif params[:queue].present?
+              redis.add_tag_to_queue(params[:tag], params[:queue])
+            end
+            redirect "/resque/#{appn.downcase}/Tags"
           end
 
           app.get "/#{appn.downcase}/Stats" do

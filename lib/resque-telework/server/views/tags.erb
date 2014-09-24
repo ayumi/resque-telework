@@ -1,0 +1,54 @@
+<style>
+
+#main .view-tags h3 {
+  font-weight: bold;
+  font-size: 16px;
+  margin: 30px 0 15px;
+}
+
+#main .view-tags form {
+  float: none;
+  margin: 0;
+}
+
+#main .view-tags select {
+  margin: 10px 0;
+}
+
+#main .view-tags .delete-form {
+  display: inline-block;
+}
+
+</style>
+
+<% @subtabs= my_substabs %>
+
+<div class="view-tags">
+
+  <h1>Tags</h1>
+
+  <% @tags.each do |tag| %>
+    <% queues = @tags_to_queues[tag].try(:sort) %>
+    <h3><%= tag.titleize %></h3>
+    <% if queues.present? %>
+      <ul>
+        <% queues.each do |queue| %>
+          <li>
+            <%= queue %>
+            <form action="/resque/telework/Tags" method="post" class="delete-form">
+              <input name="_method" type="hidden" value="DELETE" />
+              <input type="hidden" name="tag" value="<%= tag %>" />
+              <input type="hidden" name="queue" value="<%= queue %>" />
+              <input type="submit" value="X" />
+            </form>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+    <form action="/resque/telework/Tags" method="POST">
+      <input type="hidden" name="tag" value="<%= tag %>" />
+      <%= generic_filter_with_dis("queue_filter", "queue", [['', 'Add...']] + (Resque.redis.smembers('queues') - queues).sort.map { |q| [q, q] }, "onchange=\"$(this).closest('form').submit();\"") %>
+    </form>
+  <% end %>
+
+</div>

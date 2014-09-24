@@ -71,6 +71,10 @@ module Resque
         "#{key_prefix}:host:#{h}:last_seen"
       end
 
+      def tag_queues_key( tag ) # Set (of queue names)
+        "#{key_prefix}:tag_queues:#{tag}"
+      end
+
       def notes_key # List
         "#{key_prefix}:notes"
       end
@@ -451,6 +455,18 @@ module Resque
 
       def queue_list
         Resque.redis.smembers("queues")
+      end
+
+      def queues_with_tag( tag )
+        Resque.redis.smembers(tag_queues_key(tag))
+      end
+
+      def add_tag_to_queue( tag, queue )
+        Resque.redis.sadd(tag_queues_key(tag), queue)
+      end
+
+      def remove_tag_from_queue( tag, queue )
+        Resque.redis.srem(tag_queues_key(tag), queue)
       end
 
       def fmt_date( t, rel=false ) # This is not redis-specific and should be moved to another class!
