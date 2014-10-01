@@ -406,6 +406,11 @@ module Resque
           app.post "/#{appn.downcase}/snapshot" do
             action = params[:action]
             case action
+            when 'snapshot'
+              is_snapshot_saved = redis.set_snapshot
+              unless is_snapshot_saved
+                session[:notice] = 'Unable to save a snapshot, as no workers are running.'
+              end
             when 'snapshot_and_stop'
               is_snapshot_saved = redis.set_snapshot
               if is_snapshot_saved

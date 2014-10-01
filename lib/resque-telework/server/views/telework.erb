@@ -455,7 +455,7 @@ $(document).ready(function() {
   	<span class="stopping_all_submit"><input type="submit" value="Go"/></span>
   </form><br /><br />
   <form method="post" action="/resque/telework/snapshot" class="pull-right">
-    <%= generic_filter_with_dis("action_filter", "action", [["snapshot_and_stop", "Snapshot and stop all workers on all hosts"]] + (@snapshot ? [["restore_snapshot", "Restore all workers on all hosts from snapshot"]] : [])) %>
+    <%= generic_filter_with_dis("action_filter", "action", [["snapshot", "Save snapshot"], ["snapshot_and_stop", "Save snapshot and stop all workers on all hosts"]] + (@snapshot ? [["restore_snapshot", "Restore all workers on all hosts from snapshot"]] : [])) %>
     <span><input type="submit" value="Go"/></span>
   </form>
   <div class="label-default pull-right" style="clear:both">
