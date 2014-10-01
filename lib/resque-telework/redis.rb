@@ -71,6 +71,14 @@ module Resque
         "#{key_prefix}:host:#{h}:last_seen"
       end
 
+      def tag_queues_key( tag ) # Set (of queue names)
+        "#{key_prefix}:tag_queues:#{tag}"
+      end
+
+      def snapshot_key # String, JSON-encoded
+        "#{key_prefix}:snapshot"
+      end
+
       def notes_key # List
         "#{key_prefix}:notes"
       end
@@ -451,6 +459,51 @@ module Resque
 
       def queue_list
         Resque.redis.smembers("queues")
+      end
+
+      def queues_with_tag( tag )
+        Resque.redis.smembers(tag_queues_key(tag))
+      end
+
+      def add_tag_to_queue( tag, queue )
+        Resque.redis.sadd(tag_queues_key(tag), queue)
+      end
+
+      def remove_tag_from_queue( tag, queue )
+        Resque.redis.srem(tag_queues_key(tag), queue)
+      end
+
+      def get_snapshot
+        string = Resque.redis.get(snapshot_key)
+        return nil if string.blank?
+        ActiveSupport::JSON.decode(string)
+      end
+
+      def set_snapshot
+        snapshot = {
+          'hosts' => {}
+        }
+        statuses = []
+        hosts.each do |host|
+          host_snapshot = {
+            'tasks' => {}
+          }
+          tasks(host).each do |task_id, task|
+            status = task['worker_status']
+            host_snapshot['tasks'][task_id] = status
+            statuses << status
+          end
+          snapshot['hosts'][host] = host_snapshot
+        end
+        # In the case that two users try to create a snapshot almost simultaneously, the second user's snapshot
+        # would overwrite the first user's snapshot with no 'Running' statuses. To prevent this, only allow snapshots
+        # that include 'Running' statuses.
+        if !statuses.include?('Running')
+          return false
+        end
+        snapshot['created_at'] = Time.now
+        Resque.redis.set(snapshot_key, ActiveSupport::JSON.encode(snapshot))
+        true
       end
 
       def fmt_date( t, rel=false ) # This is not redis-specific and should be moved to another class!

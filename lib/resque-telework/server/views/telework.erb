@@ -1,4 +1,8 @@
-<% @subtabs= my_substabs %>
+<%
+@subtabs= my_substabs
+@tags_to_queues= Resque::Plugins::Telework::QUEUE_TAGS.inject({}) { |hash, tag| hash[tag] = redis.queues_with_tag(tag); hash }
+@snapshot= redis.get_snapshot
+%>
 <% if @refresh %>
 <META HTTP-EQUIV="refresh" CONTENT="<%= @refresh%>">
 <% end %>
@@ -14,15 +18,30 @@
   }
   #main form {
     float: left;
+    margin: 5px 0;
   }
-  #stopping_all {
+  .pull-right {
     float: right !important;
+  }
+  .label-default {
+    color: #999;
+    font-size: 11px;
+    margin: 0 3px;
+  }
+  .notice {
+    margin: 30px 0;
+    padding: 10px;
+    color: #8a6d3b;
+    background-color: #fcf8e3;
+    border: 1px solid #faebcc;
   }
 </style>
 
 <script language="javascript" type="text/javascript">
 function hostlist(index) {
-  document.startform.rev_filter.options.length = 0;
+  if (document.startform) {
+    document.startform.rev_filter.options.length = 0;
+  }
   switch(index) {
 	<% for host in redis.hosts %>
 	  <%= "case'#{host}':" %>
@@ -37,7 +56,9 @@ function hostlist(index) {
 };
 function queuelist(index) {
 	if(index != "(other)") {
-		document.startform.queue_text.value= "";
+    if (document.startform) {
+  		document.startform.queue_text.value= "";
+    }
 	}
 	return true;
 };
@@ -85,10 +106,61 @@ function action(val) {
     document.body.appendChild(form);
     form.submit();
 };
+
 $(document).ready(function() {
-	document.startform.queue_filter.selectedIndex= 1;
+  if (document.startform) {
+    document.startform.queue_filter.selectedIndex= 1;
+  }
 	hostlist($('#host_filter').val());
 	queuelist($('#queue_filter').val());
+
+  $('form#batch_action').submit(function(){
+    var checkboxes = $('[data-role=task-checkbox]:checked');
+    if (checkboxes.length == 0) {
+      alert('Please check at least one worker!');
+      return false;
+    }
+    var tasks = [];
+    checkboxes.each(function(index, el) {
+      tasks.push($(el).attr('data-task'));
+    });
+    $('form#batch_action input[name=tasks]').val('[' + tasks.join(',') + ']')
+    return true;
+  });
+
+  $('form#select_tasks').submit(function(){
+    var form = $(this);
+    var action = form.find('[name=action]').val();
+    var only = form.find('[name=only]').val();
+    var queue = form.find('[name=queue]').val();
+    $('[data-role=task-checkbox]').each(function(index, el){
+      el = $(el)
+      var queues = el.attr('data-queues');
+      if (only) {
+        is_match = queues == queue;
+      } else {
+        is_match = queues.match(new RegExp('(?:,|^)' + queue + '(?:,|$)'));
+      }
+      if (is_match) {
+        if (action == 'select') {
+          el.attr('checked', 'checked');
+        } else {
+          el.removeAttr('checked');
+        }
+      }
+    });
+    return false;
+  });
+
+  $('[data-role=host-tasks-checkbox]').click(function(){
+    var checkboxes = $(this).closest('table').find('[data-role=task-checkbox]');
+    if ($(this).is(':checked')) {
+      checkboxes.attr('checked', 'checked');
+    } else {
+      checkboxes.removeAttr('checked');
+    }
+    return true;
+  });
 });
 </script>
 
@@ -103,6 +175,13 @@ $(document).ready(function() {
     <a href="Overview?refresh=20">Start auto-refresh</a>
   <% end %>
 </div>
+<% end %>
+
+<% if session[:notice] %>
+<div class="notice">
+  <%= session[:notice] %>
+</div>
+<% session.delete(:notice) %>
 <% end %>
 
 <% notes= redis.notes_pop %>
@@ -221,12 +300,23 @@ $(document).ready(function() {
 <br><br><br><br><br><br>
 <% end %>
 
+<div class="pull-right">
+  <form id="batch_action" name="batch_action" method="post" action="/resque/telework/batch_action" class="pull-right">
+    <%= generic_filter("action_filter", "action", ["Start", "Stop", "Kill"]) %>
+    <input type="hidden" name="tasks" />
+    selected workers
+    <input type="submit" value="Go"/>
+  </form><br />
+  <form id="select_tasks" name="select_tasks">
+    <%= generic_filter_with_dis("action_filter", "action", [['select', "Select"], ['deselect', "Deselect"]]) %>
+    all workers
+    <%= generic_filter_with_dis("only_filter", "only", [["only", "running only"], ["", "running"]]) %>
+    <%= generic_filter_with_dis("queue_filter", "queue", Resque.redis.smembers('queues').sort.map { |q| [q, q] }, ' style="max-width: 200px;"') %>
+    <input type="submit" value="Go"/>
+  </form>
+</div>
 <h1>Hosts, Revisions, Tasks and Workers</h1>
-<form id="stopping_all" name="stopping_all" method="post" action="/resque/telework/stop_all">
-	<%= generic_filter("mode_filter", "m", ["Stop", "Kill"]) %>
-	 all workers on host <%= generic_filter_with_dis("host_filter", "h", hosts.zip( hosts.map{ |h| redis.aliases(h) } ) <<  ["[All hosts]", "[All hosts]"]) %>
-	<span class="stopping_all_submit"><input type="submit" value="Go"/></span>
-</form></br>
+
 <table>
     <tr>
       <th>Host</th>
@@ -283,7 +373,7 @@ $(document).ready(function() {
       </td>
       <td><%= redis.tasks(host).length%> task(s)
 	  <table><tr>
-		</tr><th>Task</th>
+		</tr><th>Task <input type="checkbox" data-role="host-tasks-checkbox" class="pull-right" /></th>
 		     <th>Status</th>
 		     <th>Queue(s)</th>
 		     <th>Count</th>
@@ -297,7 +387,11 @@ $(document).ready(function() {
 	     <% status= "Stopped" if status.blank? %>
 	     <% running= status!='Stopped' %>
 	     <% paused=  status=='Paused' %>
-             <td><%= "<a href=\"/resque/telework/task/#{host}/#{id}\">#{id}</a>" %>
+       <% queues= info['queue'].split(",") %>
+       <% tags= @tags_to_queues.select { |tag, tag_queues| (queues - tag_queues).length == 0 }.map(&:first) %>
+      <td>
+        <%= "<a href=\"/resque/telework/task/#{host}/#{id}\">#{id}</a>" %>
+        <input type="checkbox" name="task_ids[]" value="<%= id %>" data-role="task-checkbox" data-queues="<%= info['queue'] %>" data-task="<%= CGI::escapeHTML({ host: host, task_id: id, count: info['worker_count'], rev: redis.revisions(host).first.try(:[], 'rev') || '' }.to_json) %>" class="pull-right" />
 	    </td><td><center><%= auto ? "<b>Auto</b><br/><br/>" : "" %>
         <% if status == 'Stopped' %>
           <span style="color: grey;">Stopped</span>
@@ -305,7 +399,11 @@ $(document).ready(function() {
           <%= "#{status.gsub(/,/,'<br/>')}" %>
         <% end %>
       </center>
-	    </td><td><% for q in info['queue'].split(",") %>
+	    </td><td>
+      <% tags.each do |tag| %>
+        <span class="pull-right label-default"><%= tag %></span>
+      <% end %>
+      <% for q in queues %>
 	    <% if q=="*" %>*
 	    <% else %> <% ql= redis.queue_length(q) %>
 	    <% if ql==0 %><font color="grey"><span title="Queue is empty"><%= q %></span></font>
@@ -350,11 +448,25 @@ $(document).ready(function() {
     <% end %>
 </table>
 </br>
-<form id="stopping_all" name="stopping_all" method="post" action="/resque/telework/stop_all">
-	<%= generic_filter("mode_filter", "m", ["Stop", "Kill"]) %>
-    all workers on host <%= generic_filter_with_dis("host_filter", "h", hosts.zip( hosts.map{ |h| redis.aliases(h) } ) <<  ["[All hosts]", "[All hosts]"]) %>
-	<span class="stopping_all_submit"><input type="submit" value="Go"/></span>
-</form></br></br>
+<div class="pull-right">
+  <form id="stopping_all" name="stopping_all" method="post" action="/resque/telework/stop_all">
+  	<%= generic_filter("mode_filter", "m", ["Stop", "Kill"]) %>
+      all workers on host <%= generic_filter_with_dis("host_filter", "h", hosts.zip( hosts.map{ |h| redis.aliases(h) } ) <<  ["[All hosts]", "[All hosts]"]) %>
+  	<span class="stopping_all_submit"><input type="submit" value="Go"/></span>
+  </form><br /><br />
+  <form method="post" action="/resque/telework/snapshot" class="pull-right">
+    <%= generic_filter_with_dis("action_filter", "action", [["snapshot", "Save snapshot"], ["snapshot_and_stop", "Save snapshot and stop all workers on all hosts"]] + (@snapshot ? [["restore_snapshot", "Restore all workers on all hosts from snapshot"]] : [])) %>
+    <span><input type="submit" value="Go"/></span>
+  </form>
+  <div class="label-default pull-right" style="clear:both">
+    <% if @snapshot %>
+      Last snapshot: <%= @snapshot['created_at'] %>
+    <% else %>
+      No snapshot saved
+    <% end %>
+  </div>
+</div>
+<br /><br />
 
 <br>
 <% if @status_messages %>

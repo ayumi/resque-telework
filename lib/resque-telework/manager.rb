@@ -50,6 +50,7 @@ module Resque
                 while cmd= cmds_pop( @HOST ) do       # Pop a command in the command queue
                   do_command(cmd)                     # Execute it
                 end
+                downscale_if_necessary
               end
               check_auto                              # Deal with the task in auto mode
               sleep @SLEEP                            # Sleep
@@ -221,6 +222,28 @@ module Resque
           # Get status for the workers
           auto['last_action']= Time.now - auto['auto_delay'].to_i
           @AUTO[id]= auto
+        end
+
+        # If CPU is > 100%, find workers that are running only downscalable queues and stop them
+        def downscale_if_necessary
+          info = cpu_load_info
+          load = info['cpu']['load_1min']
+          cores = info['cpu']['cores']
+          return if load < cores
+          downscalable_queues = queues_with_tag('downscalable')
+          @WORKERS.each do |id, info|
+            if info['status'] == 'RUN'
+              queues = info['cmd']['queue'].split(/\s+/).compact
+              can_be_downscaled = queues.all? do |queue|
+                downscalable_queues.include?(queue)
+              end
+              if can_be_downscaled
+                send_status( 'Info', "Downscaling worker #{id} (PID #{info['pid']})" )
+                manage_worker( { 'worker_id' => id, 'action' => 'QUIT' } )
+              end
+              # If !can_be_downscaled, perhaps we should emit a notification of some kind?
+            end
+          end
         end
 
         # Start a task

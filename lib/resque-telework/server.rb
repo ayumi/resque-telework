@@ -9,6 +9,8 @@ module Resque
         PUBLIC_PATH = File.join(File.dirname(__FILE__), 'server', 'public')
 
         def self.registered( app )
+          app.enable :sessions
+
           appn= 'Telework'
 
           # Can't set public_folder as it would overwrite the resque one
@@ -23,7 +25,7 @@ module Resque
               @@myredis
             end
             def my_substabs
-              ["Overview", "Start", "Stats", "Misc"]
+              ["Overview", "Start", "Stats", "Tags", "Misc"]
             end
             def my_show(page, layout = true)
               response["Cache-Control"] = "max-age=0, private, must-revalidate"
@@ -56,6 +58,37 @@ module Resque
                 'log_snapshot_period' => 30, 'log_snapshot_lines' => 40, 'exec' => "bundle exec rake resque:work --trace", 'env_vars' => ''
               }
             end
+
+            def start_task(host, task_id, count, rev)
+              rev_split= rev.split(',')
+              task= redis.tasks_by_id(host, task_id)
+              id= []
+              for i in 1..count.to_i do
+                w= task
+                w['worker_id']= redis.unique_id.to_s
+                id << w['worker_id']
+                w['worker_status']= 'Starting'
+                w['revision']= rev_split[0]
+                w['revision_small']= rev_split[1]
+                w['command']= 'start_worker'
+                w['task_id']= task_id
+                redis.cmds_push( host, w )
+              end
+              task['worker_id']= id
+              task['worker_count']= count
+              redis.tasks_add( host, task_id, task )
+            end
+
+            def signal_task(host, task_id, signal)
+              task= redis.tasks_by_id(host, task_id)
+              task['worker_id'].each do |id|
+                redis.cmds_push( host, { 'command' => 'signal_worker', 'worker_id'=> id, 'action' => signal } )
+              end
+            end
+
+            def save_snapshot
+              redis.create_snapshot
+            end
           end
 
           app.get "/#{appn.downcase}" do
@@ -82,6 +115,21 @@ module Resque
 
           app.get "/#{appn.downcase}/Misc" do
             my_show 'misc'
+          end
+
+          app.get "/#{appn.downcase}/Tags" do
+            @tags = Resque::Plugins::Telework::QUEUE_TAGS
+            @tags_to_queues = @tags.inject({}) { |hash, tag| hash[tag] = redis.queues_with_tag(tag); hash }
+            my_show 'tags'
+          end
+
+          app.post "/#{appn.downcase}/Tags" do
+            if params[:_method] == 'DELETE'
+              redis.remove_tag_from_queue(params[:tag], params[:queue])
+            elsif params[:queue].present?
+              redis.add_tag_to_queue(params[:tag], params[:queue])
+            end
+            redirect "/resque/#{appn.downcase}/Tags"
           end
 
           app.get "/#{appn.downcase}/Stats" do
@@ -267,26 +315,7 @@ module Resque
 
           # Start workers
           app.post "/#{appn.downcase}/start" do
-            @task_id= params[:task]
-            @host= params[:host]
-            @rev= params[:rev].split(',')
-            @task= redis.tasks_by_id(@host, @task_id)
-            count= params[:count]
-            id= []
-            for i in 1..count.to_i do
-              w= @task
-              w['worker_id']= redis.unique_id.to_s
-              id << w['worker_id']
-              w['worker_status']= 'Starting'
-              w['revision']= @rev[0]
-              w['revision_small']= @rev[1]
-              w['command']= 'start_worker'
-              w['task_id']= @task_id
-              redis.cmds_push( @host, w )
-            end
-            @task['worker_id']= id
-            @task['worker_count']= count
-            redis.tasks_add( @host, @task_id, @task )
+            start_task(params[:host], params[:task], params[:count], params[:rev])
             redirect "/resque/#{appn.downcase}"
           end
 
@@ -326,24 +355,14 @@ module Resque
 
 
           app.post "/#{appn.downcase}/pause" do
-            @task_id= params[:task]
-            @host= params[:host]
-            @cont= params[:cont]=="true"
-            @task= redis.tasks_by_id(@host, @task_id)
-            @task['worker_id'].each do |id|
-              redis.cmds_push( @host, { 'command' => 'signal_worker', 'worker_id'=> id, 'action' => @cont ? 'CONT' : 'PAUSE' } )
-            end
+            signal = @cont ? 'KILL' : 'QUIT'
+            signal_task(params[:host], params[:task], signal)
             redirect "/resque/#{appn.downcase}"
           end
 
           app.post "/#{appn.downcase}/stop" do
-            @task_id= params[:task]
-            @host= params[:host]
-            @kill= params[:kill]=="true"
-            @task= redis.tasks_by_id(@host, @task_id)
-            @task['worker_id'].each do |id|
-              redis.cmds_push( @host, { 'command' => 'signal_worker', 'worker_id'=> id, 'action' => @kill ? 'KILL' : 'QUIT' } )
-            end
+            signal = params[:kill] == 'true' ? 'KILL' : 'QUIT'
+            signal_task(params[:host], params[:task], signal)
             redirect "/resque/#{appn.downcase}"
           end
 
@@ -357,6 +376,75 @@ module Resque
                   redis.cmds_push( h, { 'command' => 'signal_worker', 'worker_id'=> id, 'action' => @kill ? 'KILL' : 'QUIT' } )
                 end
               end
+            end
+            redirect "/resque/#{appn.downcase}"
+          end
+
+          app.post "/#{appn.downcase}/batch_action" do
+            hosts_to_tasks = redis.hosts.inject({}) { |hash, host| hash[host] = Hash[redis.tasks(host)]; hash }
+            action = params[:action].downcase
+            tasks = ActiveSupport::JSON.decode(params[:tasks])
+
+            tasks.each do |task|
+              host = task['host']
+              task_id = task['task_id']
+              status = hosts_to_tasks[host][task_id].try(:[], 'worker_status')
+              case action
+              when 'start'
+                start_task(host, task_id, task['count'], task['rev']) unless %w{Running Resuming}.include?(status)
+              when 'stop'
+                signal_task(host, task_id, 'QUIT') if %w{Running Resuming}.include?(status)
+              when 'kill'
+                signal_task(host, task_id, 'KILL') if %w{Running Resuming}.include?(status)
+              else
+                raise "Invalid action: #{action}"
+              end
+            end
+            redirect "/resque/#{appn.downcase}"
+          end
+
+          app.post "/#{appn.downcase}/snapshot" do
+            action = params[:action]
+            case action
+            when 'snapshot'
+              is_snapshot_saved = redis.set_snapshot
+              unless is_snapshot_saved
+                session[:notice] = 'Unable to save a snapshot, as no workers are running.'
+              end
+            when 'snapshot_and_stop'
+              is_snapshot_saved = redis.set_snapshot
+              if is_snapshot_saved
+                redis.hosts.each do |host|
+                  redis.tasks(host).each do |task_id, task|
+                    status = task['worker_status']
+                    if %w{Running Resuming}.include?(status)
+                      signal_task(host, task_id, 'QUIT')
+                    end
+                  end
+                end
+                session[:notice] = 'Saving snapshot and stopping all workers...'
+              else
+                session[:notice] = 'Unable to save a snapshot, as no workers are running.'
+              end
+            when 'restore_snapshot'
+              is_any_task_running = redis.hosts.any? { |host| redis.tasks(host).any? { |task_id, task| %w{Running Resuming}.include?(task['worker_status']) } }
+              if is_any_task_running
+                session[:notice] = 'Unable to restore the snapshot, as workers are running. Please stop all workers before restoring a snapshot.'
+              else
+                snapshot = redis.get_snapshot
+                snapshot['hosts'].each do |host, host_snapshot|
+                  host_snapshot['tasks'].each do |task_id, status|
+                    if %w{Running Resuming}.include?(status)
+                      task = redis.tasks_by_id(host, task_id)
+                      rev = "#{task['revision']},#{task['revision_small']}"
+                      start_task(host, task_id, task['worker_count'], rev)
+                    end
+                  end
+                end
+                session[:notice] = 'Restoring snapshot...'
+              end
+            else
+              raise "Invalid action: #{action}"
             end
             redirect "/resque/#{appn.downcase}"
           end
