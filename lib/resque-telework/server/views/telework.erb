@@ -41,17 +41,17 @@
 function hostlist(index) {
   if (document.startform) {
     document.startform.rev_filter.options.length = 0;
+    switch(index) {
+  	<% for host in redis.hosts %>
+  	  <%= "case'#{host}':" %>
+  	  <% i= 0 %>
+  	  <% for rev in redis.revisions(host) %>
+  	    <%= "document.startform.rev_filter.options[#{i}]= new Option('#{rev['revision_small']} from #{redis.fmt_date(rev['revision_date'])}', '#{rev['revision']} #{rev['revision_small']}' );" %>
+  	  <% i+= 1 %>
+  	  <% end %> break;
+  	<% end %>
+    };
   }
-  switch(index) {
-	<% for host in redis.hosts %>
-	  <%= "case'#{host}':" %>
-	  <% i= 0 %>
-	  <% for rev in redis.revisions(host) %>
-	    <%= "document.startform.rev_filter.options[#{i}]= new Option('#{rev['revision_small']} from #{redis.fmt_date(rev['revision_date'])}', '#{rev['revision']} #{rev['revision_small']}' );" %>
-	  <% i+= 1 %>
-	  <% end %> break;
-	<% end %>
-  };
   return true;
 };
 function queuelist(index) {
@@ -63,9 +63,11 @@ function queuelist(index) {
 	return true;
 };
 function queuetext(val) {
-	if(val!="") {
-		document.startform.queue_filter.selectedIndex= 0;
-	}
+  if(val!="") {
+    if (document.startform) {
+      document.startform.queue_filter.selectedIndex= 0;
+    }
+  }
 };
 function action(val) {
 	var params = val.split(",");
