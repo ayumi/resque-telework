@@ -391,9 +391,10 @@ $(document).ready(function() {
 	     <% paused=  status=='Paused' %>
        <% queues= info['queue'].split(",") %>
        <% tags= @tags_to_queues.select { |tag, tag_queues| (queues - tag_queues).length == 0 }.map(&:first) %>
+       <% revision = redis.revisions(host).first %>
       <td>
         <%= "<a href=\"/resque/telework/task/#{host}/#{id}\">#{id}</a>" %>
-        <input type="checkbox" name="task_ids[]" value="<%= id %>" data-role="task-checkbox" data-queues="<%= info['queue'] %>" data-task="<%= CGI::escapeHTML({ host: host, task_id: id, count: info['worker_count'], rev: redis.revisions(host).first.try(:[], 'rev') || '' }.to_json) %>" class="pull-right" />
+        <input type="checkbox" name="task_ids[]" value="<%= id %>" data-role="task-checkbox" data-queues="<%= info['queue'] %>" data-task="<%= CGI::escapeHTML({ host: host, task_id: id, count: info['worker_count'], rev: "#{revision.try(:[], 'revision')},#{revision.try(:[], 'revision_small')}" }.to_json) %>" class="pull-right" />
 	    </td><td><center><%= auto ? "<b>Auto</b><br/><br/>" : "" %>
         <% if status == 'Stopped' %>
           <span style="color: grey;">Stopped</span>
