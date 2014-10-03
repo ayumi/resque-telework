@@ -300,7 +300,6 @@ module Resque
           File.open("#{log_path}/telework_#{id}.log", 'w') { |f| f.write(intro) }
         rescue Exception => e
           send_status( 'Error', "Exception when spawning worker #{cmd['worker_id']}" )
-          puts "Backtrace: #{e.backtrace}"
           send_status( 'Error', "Exception #{e.message}")
         end
 
