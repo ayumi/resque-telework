@@ -1,0 +1,31 @@
+<link href="/resque/telework/public/application.css" media="screen" rel="stylesheet" type="text/css" />
+
+<%
+@subtabs= my_substabs
+hosts= redis.hosts
+%>
+
+<h1>Restore</h1>
+<br />
+
+<form class="form-left" id="restore-form" name="restore-form" method="post" action="/resque/telework/restore_tasks" >
+  <table>
+    <thead>
+      <tr>
+        <th>Target Host</th>
+        <th>Source Queues</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          <%= generic_filter_with_dis("host_filter", "h", hosts.zip( hosts.map{ |h| redis.aliases(h) } )) %>
+        </td>
+        <td>
+          <%= generic_filter_with_dis("host_filter", "source", hosts.zip( hosts.map{ |h| redis.aliases(h) } )) %>
+        </td>
+        <td><input type="submit" value="Append"></td>
+      </tr>
+    </tbody>
+  </table>
+</form>

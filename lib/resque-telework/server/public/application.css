@@ -1,0 +1,8 @@
+#main .clear {
+  clear: both;
+}
+
+#main .form-left {
+  float: left;
+  margin-left: 0;  
+}

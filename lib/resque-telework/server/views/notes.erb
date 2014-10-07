@@ -1,0 +1,47 @@
+<link href="/resque/telework/public/application.css" media="screen" rel="stylesheet" type="text/css" />
+
+<% @subtabs= my_substabs %>
+
+<h1>Notes</h1>
+<br />
+
+<form class="form-left" id="noting" name="noting" method="post" action="/resque/telework/add_note">
+<table>
+  <tr>
+    <th>User</th>
+    <th>Note</th>
+  </tr>
+
+  <tr>
+    <td><input id="note_user" type="text" name="note_user"/></td>
+    <td><input id="note_text" type="text" size="100" name="note_text"/></td>
+    <td><input type="submit" value="Add"/></td>
+  </tr>
+</table>
+</form>
+
+<% notes= redis.notes_pop %>
+<% if notes.length>0 %>
+<div class="clear"></div>
+<br />
+<br />
+<table>
+  <tr>
+    <th>User</th>
+    <th>Date</th>
+    <th>Note</th>
+        <th>Action</th>
+  </tr>
+    <% for note,id in notes.each_with_index %>
+    <tr>
+      <td><%= note['user'] %></td>
+      <td><%= "#{redis.fmt_date(note['date'], true)}" %></td>
+      <td><%= note['note'] %></td>
+        <td>
+           <form style="margin:0px;float:center;" id="deln" name="deln" method="post" action="/resque/telework_del_note/<%= id %>" ><input type="submit" value= "Delete" /></form>
+        </td>
+  </tr>
+    <% end %>
+</table>
+<br>
+<% end %>

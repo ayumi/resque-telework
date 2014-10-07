@@ -25,7 +25,7 @@ module Resque
               @@myredis
             end
             def my_substabs
-              ["Overview", "Start", "Stats", "Tags", "Misc"]
+              ["Overview", "Start", "Restore", "Stats", "Notes", "Tags", "Misc"]
             end
             def my_show(page, layout = true)
               response["Cache-Control"] = "max-age=0, private, must-revalidate"
@@ -113,8 +113,16 @@ module Resque
             my_show appn.downcase
           end
 
+          app.get "/#{appn.downcase}/Restore" do
+            my_show 'restore'
+          end
+
           app.get "/#{appn.downcase}/Misc" do
             my_show 'misc'
+          end
+
+          app.get "/#{appn.downcase}/Notes" do
+            my_show 'notes'
           end
 
           app.get "/#{appn.downcase}/Tags" do
@@ -253,13 +261,13 @@ module Resque
             @date= Time.now
             @note= params[:note_text]
             redis.notes_push({ 'user'=> @user, 'date'=> @date, 'note' => @note })
-            redirect "/resque/#{appn.downcase}"
+            redirect back
           end
 
           app.post "/#{appn.downcase}_del_note/:note" do
             @note_id= params[:note]
             redis.notes_del(@note_id)
-            redirect "/resque/#{appn.downcase}"
+            redirect back
           end
 
           # Start a task

@@ -39,7 +39,7 @@
 
 <script language="javascript" type="text/javascript">
 function hostlist(index) {
-  if (document.startform) {
+  if (document.startform && document.startform.rev_filter) {
     document.startform.rev_filter.options.length = 0;
     switch(index) {
   	<% for host in redis.hosts %>
@@ -251,56 +251,9 @@ $(document).ready(function() {
 
 <div class="clear"></div>
 
-<h1>Restoring Workers</h1>
-<form id="restore-form" name="restore-form" method="post" action="/resque/telework/restore_tasks" >
-  <table>
-    <thead>
-      <tr>
-        <th>Target Host</th>
-        <th>Source Queues</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>
-          <%= generic_filter_with_dis("host_filter", "h", hosts.zip( hosts.map{ |h| redis.aliases(h) } ), "onchange=\"javascript: hostlist(this.options[this.selectedIndex].value);\"") %>
-        </td>
-        <td>
-          <%= generic_filter_with_dis("host_filter", "source", hosts.zip( hosts.map{ |h| redis.aliases(h) } ), "onchange=\"javascript: hostlist(this.options[this.selectedIndex].value);\"") %>
-        </td>
-        <td><input type="submit" value="Append"></td>
-  	  </tr>
-    </tbody>
-  </table>
-</form>
-
-<div class="clear"></div>
-
 <% end %>
 
 <br>
-<% if @scheduling %>
-<h1>Adding Notes</h1>
-<br>
-
-
-<form style="float:left;" id="noting" name="noting" method="post" action="/resque/telework/add_note">
-<table>
-	<tr>
-		<th>User</th>
-		<th>Note</th>
-	</tr>
-
-    <tr>
-	    <td><input id="note_user" type="text" name="note_user"/></td>
-	    <td><input id="note_text" type="text" size="100" name="note_text"/></td>
-	    <td><input type="submit" value="Add"/></td>
-</table>
-</form>
-
-
-<br><br><br><br><br><br>
-<% end %>
 
 <div class="pull-right">
   <form id="batch_action" name="batch_action" method="post" action="/resque/telework/batch_action" class="pull-right">
