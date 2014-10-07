@@ -404,6 +404,8 @@ module Resque
                 signal_task(host, task_id, 'QUIT') if %w{Running Resuming}.include?(status)
               when 'kill'
                 signal_task(host, task_id, 'KILL') if %w{Running Resuming}.include?(status)
+              when 'delete'
+                redis.tasks_rem(host, task_id) if ['Stopped', ''].include?(status)
               else
                 raise "Invalid action: #{action}"
               end

@@ -257,7 +257,7 @@ $(document).ready(function() {
 
 <div class="pull-right">
   <form id="batch_action" name="batch_action" method="post" action="/resque/telework/batch_action" class="pull-right">
-    <%= generic_filter("action_filter", "action", ["Start", "Stop", "Kill"]) %>
+    <%= generic_filter("action_filter", "action", ["Start", "Stop", "Kill", "Delete"]) %>
     <input type="hidden" name="tasks" />
     selected workers
     <input type="submit" value="Go"/>
