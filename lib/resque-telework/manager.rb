@@ -231,18 +231,20 @@ module Resque
           cores = info['cpu']['cores']
           return if load < cores
           downscalable_queues = queues_with_tag('downscalable')
-          @WORKERS.each do |id, info|
-            if info['status'] == 'RUN'
-              queues = info['cmd']['queue'].split(/\s+/).compact
-              can_be_downscaled = queues.all? do |queue|
-                downscalable_queues.include?(queue)
-              end
-              if can_be_downscaled
-                send_status( 'Info', "Downscaling worker #{id} (PID #{info['pid']})" )
-                manage_worker( { 'worker_id' => id, 'action' => 'QUIT' } )
-              end
-              # If !can_be_downscaled, perhaps we should emit a notification of some kind?
+          tasks(@HOST).each do |task_id, task|
+            next unless task['worker_status'] == 'Running'
+            queues = task['queue'].split(',').map(&:strip)
+            can_be_downscaled = queues.all? do |queue|
+              downscalable_queues.include?(queue)
             end
+            if can_be_downscaled
+              task['worker_pid'].each_with_index do |pid, index|
+                worker_id = task['worker_id'][index]
+                send_status( 'Info', "Downscaling worker #{worker_id} (PID #{pid})" )
+                manage_worker( { 'worker_id' => worker_id, 'action' => 'QUIT' } )
+              end
+            end
+            # If !can_be_downscaled, perhaps we should emit a notification of some kind?
           end
         end
 
