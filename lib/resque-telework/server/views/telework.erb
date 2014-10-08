@@ -342,7 +342,7 @@ $(document).ready(function() {
 	     <% status= "Stopped" if status.blank? %>
 	     <% running= status!='Stopped' %>
 	     <% paused=  status=='Paused' %>
-       <% queues= info['queue'].split(",") %>
+       <% queues= info['queue'].try(:split, ",") || [] %>
        <% tags= @tags_to_queues.select { |tag, tag_queues| (queues - tag_queues).length == 0 }.map(&:first) %>
        <% revision = redis.revisions(host).first %>
       <td>
