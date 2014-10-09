@@ -266,7 +266,7 @@ module Resque
 
           # Additional ENV vars
           env_vars = cmd['env_vars']
-          unless env_vars.empty?
+          if env_vars.present?
             env_vars.split(' ').each do |var_str|
               var, val = var_str.split('=')
               env[var] = val
@@ -303,6 +303,11 @@ module Resque
         rescue Exception => e
           send_status( 'Error', "Exception when spawning worker #{cmd['worker_id']}" )
           send_status( 'Error', "Exception #{e.message}")
+          begin
+            File.open("#{log_path}/telework_daemon.log", 'w') { |f| f.write("Exception when spawning worker: #{e.message}:\n#{e.backtrace.join("\n")}") }
+          rescue Exception => e
+            send_status( 'Error', "Unable to write to daemon log: #{e.message}")
+          end
         end
 
         # Rolling restart workers on latest revision
