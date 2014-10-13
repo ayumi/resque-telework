@@ -10,6 +10,8 @@ module Resque
           @RUN_DAEMON= true
           @HOST= cfg['hostname']
           @SLEEP= cfg['daemon_pooling_interval']
+          # TODO: Include this in the config once it's been vetted
+          @DOWNSCALE_INTERVAL= 300
           @WORKERS= {}
           @STOPPED= []
           @AUTO= {}
@@ -224,12 +226,20 @@ module Resque
           @AUTO[id]= auto
         end
 
-        # If CPU is > 100%, find workers that are running only downscalable queues and stop them
+        # If CPU has been > 100% for longer than @DOWNSCALE_INTERVAL, find workers that are running only downscalable queues and stop them
         def downscale_if_necessary
           info = cpu_load_info
           load = info['cpu']['load_1min']
           cores = info['cpu']['cores']
-          return if load < cores
+          if load < cores
+            @cpu_last_ok_at = Time.now
+            return
+          end
+          return if @cpu_last_ok_at.blank? || (Time.now - @cpu_last_ok_at) < @DOWNSCALE_INTERVAL
+          downscale
+        end
+
+        def downscale
           downscalable_queues = queues_with_tag('downscalable')
           tasks(@HOST).each do |task_id, task|
             next unless task['worker_status'] == 'Running'
